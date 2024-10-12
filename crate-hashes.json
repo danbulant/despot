@@ -1,0 +1,6 @@
+{
+  "git+https://github.com/khonsulabs/appit#0.4.0": "0cx7byzrbdjhd1a985hh7amjcb1zj3q1dbwjv4w9w5dfz6nxn3xp",
+  "git+https://github.com/khonsulabs/cushy.git?branch=main#cushy-macros@0.4.0": "0pfrsrc79fxip511hc18si1xgzakx0x6b5ib7x7a1dwa5ja8sx15",
+  "git+https://github.com/khonsulabs/cushy.git?branch=main#cushy@0.4.0": "0pfrsrc79fxip511hc18si1xgzakx0x6b5ib7x7a1dwa5ja8sx15",
+  "git+https://github.com/khonsulabs/kludgine#0.11.0": "0cga9iav663an86waf2kj98mmhppbxavfpbhmmhbrcdcn0i4fiv6"
+}

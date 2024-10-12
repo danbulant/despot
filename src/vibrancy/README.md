@@ -1,0 +1,1 @@
+Adapted from https://github.com/killercup/vibrant-rs. MIT License
