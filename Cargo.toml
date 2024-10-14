@@ -1,6 +1,6 @@
 [package]
-name = "rshell"
-description = "Another GUI shell"
+name = "despot"
+description = "Another Spotify client"
 version = "0.1.0"
 edition = "2021"
 
@@ -19,3 +19,11 @@ hsl = "0.1.1"
 itertools = "0.10.0"
 palette = "0.7.3"
 clap = { version = "4.5.20", features = ["derive"] }
+chrono = "0.4"
+librespot-core = { git = "https://github.com/photovoltex/librespot.git", branch = "integrate-dealer" }
+librespot-oauth = { git = "https://github.com/photovoltex/librespot.git", branch = "integrate-dealer" }
+librespot-playback = { git = "https://github.com/photovoltex/librespot.git", branch = "integrate-dealer" }
+librespot-protocol = { git = "https://github.com/photovoltex/librespot.git", branch = "integrate-dealer" }
+futures-util = { version = "0.3", features = ["alloc", "bilock", "sink", "unstable"] }
+rspotify = { version = "0.13.3" }
+oauth2 = "4.4"
