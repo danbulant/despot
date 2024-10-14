@@ -4,7 +4,7 @@ use api::SpotifyContext;
 use auth::get_token;
 use clap::Parser;
 use cli::Args;
-use cushy::{PendingApp, Run, TokioRuntime};
+use cushy::{window::MakeWindow, Application, Open, PendingApp, Run, TokioRuntime};
 use librespot_core::{authentication::Credentials, Session, SessionConfig};
 use librespot_playback::{audio_backend, config::{AudioFormat, PlayerConfig}, mixer::NoOpVolume, player::Player};
 
@@ -58,9 +58,15 @@ fn main() -> cushy::Result {
     
         let context = SpotifyContext::new(session, token);
 
+        let mut app = app.as_app();
         tokio::spawn(async move {
             let user = context.current_user().await.unwrap();
-            dbg!(user);
+            dbg!(&user);
+            let userid = user.id;
+
+            format!("Hello, {}!", user.display_name.unwrap())
+                .make_window()
+                .open(&mut app).unwrap();
         });
 
         drop(guard);
