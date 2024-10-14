@@ -1,24 +1,27 @@
 use std::future::Future;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use chrono::TimeDelta;
+use futures_util::lock::Mutex;
 use librespot_core::Session;
 use librespot_oauth::OAuthToken;
 use reqwest::StatusCode;
+use rspotify::model::PrivateUser;
+use rspotify::prelude::*;
 use rspotify::{AuthCodeSpotify, ClientError, ClientResult, Config, Token};
 use rspotify::http::HttpError;
 
-use crate::auth::{rspotify_scopes, SPOTIFY_REDIRECT_URI};
+use crate::auth::{get_access_token_from_refresh_token, rspotify_scopes, SPOTIFY_REDIRECT_URI};
 
 
-struct SpotifyContext {
+pub struct SpotifyContext {
     session: Session,
     api: AuthCodeSpotify,
-    token: OAuthToken
+    token: Mutex<OAuthToken>
 }
 
 impl SpotifyContext {
-    fn new(session: Session, token: OAuthToken) -> SpotifyContext {
+    pub fn new(session: Session, token: OAuthToken) -> SpotifyContext {
         let config = Config {
             token_refreshing: false,
             ..Default::default()
@@ -34,13 +37,28 @@ impl SpotifyContext {
             },
             config,
         );
-        SpotifyContext { session, api, token }
+        SpotifyContext { session, api, token: Mutex::new(token) }
+    }
+
+    pub async fn update_token(&self) -> bool {
+        let expires_soon = Instant::now() + Duration::from_secs(10);
+        let token = self.token.lock().await;
+        if token.expires_at < expires_soon {
+            let refresh_token = token.refresh_token.clone();
+            drop(token);
+            let token = get_access_token_from_refresh_token(&refresh_token).unwrap();;
+            *self.api.token.lock().await.unwrap() = Some(librespot_token_to_rspotify(&token));
+            *self.token.lock().await = token;
+            true
+        } else {
+            false
+        }
     }
 
     /// Execute `api_call` and retry once if a rate limit occurs.
-    async fn api_with_retry<F, T: Future<Output = ClientResult<R>>, R>(&self, api_call: F) -> Option<R>
+    async fn api_with_retry<'a, F, T: Future<Output = ClientResult<R>>, R>(&'a self, api_call: F) -> Option<R>
     where
-        F: Fn(&AuthCodeSpotify) -> T,
+        F: Fn(&'a AuthCodeSpotify) -> T,
     {
         let result = { api_call(&self.api).await };
         match result {
@@ -63,9 +81,12 @@ impl SpotifyContext {
                         }
                         StatusCode::UNAUTHORIZED => {
                             dbg!("token unauthorized. trying refresh..");
-                            // self.update_token()
-                            //     .and_then(move |_| api_call(&self.api).await.ok())
-                            None
+                            let updated = self.update_token().await;
+                            if updated {
+                                api_call(&self.api).await.ok()
+                            } else {
+                                None
+                            }
                         }
                         _ => {
                             eprintln!("unhandled api error: {:?}", response);
@@ -82,6 +103,11 @@ impl SpotifyContext {
             }
         }
     }
+    
+    pub async fn current_user(&self) -> Result<PrivateUser, ()> {
+        self.api_with_retry(|api| api.current_user()).await.ok_or(())
+    }
+
 }
 
 fn librespot_token_to_rspotify(token: &OAuthToken) -> Token {

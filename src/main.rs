@@ -1,5 +1,6 @@
 use std::thread;
 
+use api::SpotifyContext;
 use auth::get_token;
 use clap::Parser;
 use cli::Args;
@@ -53,9 +54,17 @@ fn main() -> cushy::Result {
             }
         });
 
+        dbg!(session.user_data());
+    
+        let context = SpotifyContext::new(session, token);
+
+        tokio::spawn(async move {
+            let user = context.current_user().await.unwrap();
+            dbg!(user);
+        });
+
         drop(guard);
     }
-    dbg!(session.user_data());
 
     app.run()
 }

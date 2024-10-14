@@ -69,7 +69,7 @@ fn oauth2_client() -> Result<BasicClient, OAuthError> {
     Ok(client)
 }
 
-fn get_access_token_from_refresh_token(refresh_token: &str) -> Result<OAuthToken, OAuthError> {
+pub fn get_access_token_from_refresh_token(refresh_token: &str) -> Result<OAuthToken, OAuthError> {
     let client = oauth2_client()?;
     let token = client
         .exchange_refresh_token(&RefreshToken::new(refresh_token.to_string()))
