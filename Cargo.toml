@@ -27,3 +27,7 @@ librespot-protocol = { git = "https://github.com/photovoltex/librespot.git", bra
 futures-util = { version = "0.3", features = ["alloc", "bilock", "sink", "unstable"] }
 rspotify = { version = "0.13.3" }
 oauth2 = "4.4"
+
+[profile.dev]
+debug = 0
+strip = "debuginfo"
