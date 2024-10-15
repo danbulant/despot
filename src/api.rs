@@ -6,7 +6,7 @@ use futures_util::lock::Mutex;
 use librespot_core::Session;
 use librespot_oauth::OAuthToken;
 use reqwest::StatusCode;
-use rspotify::model::PrivateUser;
+use rspotify::model::{Page, PrivateUser, SimplifiedPlaylist, UserId};
 use rspotify::prelude::*;
 use rspotify::{AuthCodeSpotify, ClientError, ClientResult, Config, Token};
 use rspotify::http::HttpError;
@@ -106,6 +106,10 @@ impl SpotifyContext {
     
     pub async fn current_user(&self) -> Result<PrivateUser, ()> {
         self.api_with_retry(|api| api.current_user()).await.ok_or(())
+    }
+
+    pub async fn current_user_playlists(&self, limit: Option<u32>, offset: Option<u32>) -> Result<Page<SimplifiedPlaylist>, ()> {
+        self.api_with_retry(|api| api.current_user_playlists_manual(limit, offset)).await.ok_or(())
     }
 
 }

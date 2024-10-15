@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use cushy::{kludgine::{AnyTexture, LazyTexture}, value::{CallbackHandle, Destination, Dynamic, Source, Value}, widgets::Image};
+use cushy::{kludgine::{AnyTexture, LazyTexture}, value::{CallbackDisconnected, CallbackHandle, Destination, Dynamic, Source, Value}, widgets::Image};
 use futures_util::lock::Mutex;
 use http_cache_reqwest::{CACacheManager, Cache, CacheMode, HttpCache, HttpCacheOptions};
 use image::imageops::FilterType;
@@ -10,11 +10,17 @@ use tokio::task::JoinHandle;
 
 use crate::rt::tokio_runtime;
 
-
-trait ImageExt {
+pub trait ImageExt {
     fn new_empty() -> Self;
 
     fn load_url(&mut self, url: Dynamic<Option<String>>) -> CallbackHandle;
+
+    fn with_url(mut self, url: Dynamic<Option<String>>) -> Self
+        where Self: Sized
+    {
+        self.load_url(url).persist();
+        self
+    }
 }
 
 impl ImageExt for Image {
@@ -22,6 +28,8 @@ impl ImageExt for Image {
         Image::new(Dynamic::new(get_empty_texture()))
     }
 
+    /// Makes the image connected to a URL
+    /// Calling this multiple times on a single image may cause memory leaks
     fn load_url(&mut self, url: Dynamic<Option<String>>) -> CallbackHandle {
         let client = ClientBuilder::new(Client::new())
             .with(Cache(HttpCache {
@@ -41,12 +49,15 @@ impl ImageExt for Image {
             Value::Dynamic(dynamic) => dynamic,
             _ => unreachable!()
         };
-        let texture = texture.clone();
     
         let prev_request_join = Arc::new(Mutex::new(None::<JoinHandle<()>>));
-        url.for_each({
+        url.for_each_try({
             let texture = texture.clone();
             move |url| {
+                let texture_count = texture.instances();
+                if texture_count <= 1 {
+                    return Err(CallbackDisconnected);
+                }
                 let guard = tokio_runtime().enter();
                 let url = url.clone();
                 let prev_request_join = prev_request_join.clone();
@@ -74,6 +85,7 @@ impl ImageExt for Image {
                     }
                 });
                 drop(guard);
+                Ok(())
             }
         })
     }

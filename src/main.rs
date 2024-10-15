@@ -4,9 +4,10 @@ use api::SpotifyContext;
 use auth::get_token;
 use clap::Parser;
 use cli::Args;
-use cushy::{window::MakeWindow, Application, Open, PendingApp, Run, TokioRuntime};
+use cushy::{value::Dynamic, widget::MakeWidget, window::MakeWindow, Application, Open, PendingApp, Run, TokioRuntime};
 use librespot_core::{authentication::Credentials, Session, SessionConfig};
 use librespot_playback::{audio_backend, config::{AudioFormat, PlayerConfig}, mixer::NoOpVolume, player::Player};
+use widgets::{library::playlist::playlists_widget, ActivePage};
 
 mod vibrancy;
 mod theme;
@@ -64,9 +65,14 @@ fn main() -> cushy::Result {
             dbg!(&user);
             let userid = user.id;
 
-            format!("Hello, {}!", user.display_name.unwrap())
+            let playlists = context.current_user_playlists(None, None).await.unwrap();
+
+            let selected_page = Dynamic::new(ActivePage::default());
+
+            playlists_widget(playlists.items, selected_page)
                 .make_window()
-                .open(&mut app).unwrap();
+                .open(&mut app)
+                .unwrap();
         });
 
         drop(guard);
