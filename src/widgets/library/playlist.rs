@@ -1,20 +1,16 @@
-use cushy::{styles::components::WidgetBackground, value::{Destination, Dynamic, IntoDynamic, IntoValue, Source, Value}, widget::{MakeWidget, WidgetList}, widgets::{grid::Orientation, Image, Stack}};
+use cushy::{value::{Destination, Dynamic, IntoDynamic, IntoValue, Source, Value}, widget::{MakeWidget, WidgetList}, widgets::{button::{ButtonBackground, ButtonHoverBackground}, grid::Orientation, Image, Stack}};
 use rspotify::model::SimplifiedPlaylist;
 use cushy::kludgine::Color;
 
-use crate::widgets::{image::ImageExt, ActivePage, SelectedPage};
+use crate::{theme::{LIBRARY_BG, LIBRARY_BG_HOVER, LIBRARY_BG_SELECTED, LIBRARY_BG_SELECTED_HOVER}, widgets::{image::ImageExt, ActivePage, SelectedPage}};
 
 fn playlist_entry(playlist: impl IntoValue<SimplifiedPlaylist>, selected_page: SelectedPage) -> impl MakeWidget {
     let playlist: Value<SimplifiedPlaylist> = playlist.into_value();
     let id = playlist.map(|p| p.id.clone());
-    let background = selected_page.map_each(move |page| {
-        match page {
-            ActivePage::Playlist(p) if p.id == id => {
-                Color(0xFFFFFF10)
-            }
-            _ => Color::CLEAR_WHITE
-        }
-    });
+    let is_active = selected_page.map_each(move |page| 
+        matches!(page, ActivePage::Playlist(p) if p.id == id)
+    );
+    let (background, background_hover) = get_colors(is_active);
     Image::new_empty()
         .with_url(
             playlist
@@ -33,7 +29,8 @@ fn playlist_entry(playlist: impl IntoValue<SimplifiedPlaylist>, selected_page: S
     .on_click(move |_| {
         selected_page.set(ActivePage::Playlist(playlist.get()));
     })
-    .with(&WidgetBackground, background)
+    .with(&ButtonBackground, background)
+    .with(&ButtonHoverBackground, background_hover)
 }
 
 pub fn playlists_widget(playlists: impl IntoValue<Vec<SimplifiedPlaylist>>, selected_page: SelectedPage) -> impl MakeWidget {
@@ -52,14 +49,8 @@ pub fn playlists_widget(playlists: impl IntoValue<Vec<SimplifiedPlaylist>>, sele
 }
 
 pub fn liked_songs_entry(selected_page: SelectedPage) -> impl MakeWidget {
-    let background = selected_page.map_each(move |page| {
-        match page {
-            ActivePage::LikedSongs => {
-                Color(0xFFFFFF10)
-            }
-            _ => Color::CLEAR_WHITE
-        }
-    });
+    let is_active = selected_page.map_each(|page| matches!(page, ActivePage::LikedSongs));
+    let (background, background_hover) = get_colors(is_active);
     Image::new_empty()
         .with_url(
             Dynamic::new(Some("https://misc.scdn.co/liked-songs/liked-songs-300.png".to_string()))
@@ -74,5 +65,26 @@ pub fn liked_songs_entry(selected_page: SelectedPage) -> impl MakeWidget {
     .on_click(move |_| {
         selected_page.set(ActivePage::LikedSongs);
     })
-    .with(&WidgetBackground, background)
+    .with(&ButtonBackground, background)
+    .with(&ButtonHoverBackground, background_hover)
+}
+
+/// Returns `background` and `background_hover` colors for a library entry.
+fn get_colors(is_active: impl IntoValue<bool>) -> (Value<Color>, Value<Color>) {
+    let is_active= is_active.into_value();
+    let background = is_active.map_each(|active| {
+        if *active {
+            LIBRARY_BG_SELECTED
+        } else {
+            LIBRARY_BG
+        }
+    });
+    let background_hover = is_active.map_each(|active| {
+        if *active {
+            LIBRARY_BG_SELECTED_HOVER
+        } else {
+            LIBRARY_BG_HOVER
+        }
+    });
+    (background, background_hover)
 }
