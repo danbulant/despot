@@ -8,9 +8,14 @@ use super::owned::OwnedWidget;
 /// This simple virtual list assumes that all items have the same height, width and that the item count is known.
 /// All the values are dynamic, so the list will update when the values change.
 pub trait VirtualListContent: Debug {
+    /// Single item height
     fn item_height(&self) -> impl IntoValue<Dimension>;
+    /// Width of the items
     fn width(&self) -> impl IntoValue<Dimension>;
+    /// Number of items
     fn item_count(&self) -> impl IntoValue<usize>;
+    /// Create a widget for the item at the given index.
+    /// This is called when the widget comes into view. The widget may be removed at any moment (by scrolling it out of view) and recreated later.
     fn widget_at(&self, index: usize) -> impl MakeWidget;
 }
 
@@ -21,17 +26,25 @@ struct VirtualListItem {
 }
 
 #[derive(Debug)]
+/// A virtual list widget.
+/// Requires a [VirtualListContent] trait implementation to render the items.
+/// Items are lazily recreated as they go in and out of view.
 pub struct VirtualList<T: VirtualListContent + Send + 'static> {
     virtual_list: T,
     vertical_scroll: OwnedWidget<ScrollBar>,
     items: VecDeque<VirtualListItem>,
     content_size: Dynamic<Size<UPx>>,
+    /// Maximum scroll value - max_scroll.y + control_size.height should be the height of the content.
     pub max_scroll: DynamicReader<Point<UPx>>,
+    /// Current scroll value. The x value is always 0. Change the value to scroll the widget programmatically.
     pub scroll: Dynamic<Point<UPx>>,
     control_size: Dynamic<Size<UPx>>,
 
+    /// Height of an item. Based on [VirtualListContent::item_height].
     pub item_height: DynamicReader<Dimension>,
+    /// Width of the items. Based on [VirtualListContent::width].
     pub width: DynamicReader<Dimension>,
+    /// Number of items. Based on [VirtualListContent::item_count].
     pub item_count: DynamicReader<usize>,
 
     visible_range: Dynamic<Range<usize>>
@@ -99,6 +112,7 @@ impl<T: VirtualListContent + Send + 'static> VirtualList<T> {
         self.control_size.create_reader()
     }
 
+    /// Returns a reader for number of visible items. 0 indexed.
     #[must_use]
     pub fn visible_range(&self) -> DynamicReader<Range<usize>> {
         self.visible_range.create_reader()
