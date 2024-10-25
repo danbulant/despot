@@ -4,10 +4,10 @@ use api::SpotifyContext;
 use auth::get_token;
 use clap::Parser;
 use cli::Args;
-use cushy::{figures::units::Lp, value::Dynamic, widget::MakeWidget, window::MakeWindow, Application, Open, PendingApp, Run, TokioRuntime};
+use cushy::{figures::units::Lp, styles::Dimension, value::Dynamic, widget::MakeWidget, window::MakeWindow, Application, Open, PendingApp, Run, TokioRuntime};
 use librespot_core::{authentication::Credentials, Session, SessionConfig};
 use librespot_playback::{audio_backend, config::{AudioFormat, PlayerConfig}, mixer::NoOpVolume, player::Player};
-use widgets::{library::playlist::playlists_widget, virtual_list::{virtual_list, VirtualList}, ActivePage};
+use widgets::{library::playlist::playlists_widget, virtual_list::{VirtualListContent, VirtualList}, ActivePage};
 
 mod vibrancy;
 mod theme;
@@ -17,18 +17,22 @@ mod widgets;
 mod rt;
 mod api;
 
+#[derive(Debug)]
 struct TestVirtualList;
 
-impl VirtualList for TestVirtualList {
-    fn item_count(&self) -> impl cushy::value::IntoDynamic<usize> {
-        Dynamic::new(100)
+impl VirtualListContent for TestVirtualList {
+    fn item_count(&self) -> impl cushy::value::IntoValue<usize> {
+        50
     }
-    fn item_height(&self) -> impl cushy::value::IntoDynamic<cushy::styles::Dimension> {
-        Dynamic::new(cushy::styles::Dimension::Lp(Lp::inches_f(0.5)))
+    fn item_height(&self) -> impl cushy::value::IntoValue<cushy::styles::Dimension> {
+        cushy::styles::Dimension::Lp(Lp::inches_f(0.5))
     }
     fn widget_at(&self, index: usize) -> impl MakeWidget {
         // println!("Creating item {}", index);
         format!("Item {}", index)
+    }
+    fn width(&self) -> impl cushy::value::IntoValue<cushy::styles::Dimension> {
+        Dimension::Lp(Lp::inches_f(10.))
     }
 }
 
@@ -84,11 +88,11 @@ fn main() -> cushy::Result {
 
             let selected_page = Dynamic::new(ActivePage::default());
 
-            playlists_widget(playlists.items, selected_page)
-            .and(
-                virtual_list(TestVirtualList)
-            )
-                .into_columns()
+            // playlists_widget(playlists.items, selected_page)
+            // .and(
+                VirtualList::new(TestVirtualList)
+            // )
+            //     .into_columns()
                 .make_window()
                 .open(&mut app)
                 .unwrap();

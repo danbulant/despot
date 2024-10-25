@@ -5,6 +5,7 @@ pub mod image;
 pub mod library;
 pub mod virtual_list;
 pub mod probe;
+pub mod owned;
 
 #[derive(PartialEq, Debug, Default)]
 pub enum ActivePage {
