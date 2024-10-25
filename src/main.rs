@@ -4,10 +4,10 @@ use api::SpotifyContext;
 use auth::get_token;
 use clap::Parser;
 use cli::Args;
-use cushy::{value::Dynamic, widget::MakeWidget, window::MakeWindow, Application, Open, PendingApp, Run, TokioRuntime};
+use cushy::{figures::units::Lp, value::Dynamic, widget::MakeWidget, window::MakeWindow, Application, Open, PendingApp, Run, TokioRuntime};
 use librespot_core::{authentication::Credentials, Session, SessionConfig};
 use librespot_playback::{audio_backend, config::{AudioFormat, PlayerConfig}, mixer::NoOpVolume, player::Player};
-use widgets::{library::playlist::playlists_widget, ActivePage};
+use widgets::{library::playlist::playlists_widget, virtual_list::{virtual_list, VirtualList}, ActivePage};
 
 mod vibrancy;
 mod theme;
@@ -16,6 +16,21 @@ mod auth;
 mod widgets;
 mod rt;
 mod api;
+
+struct TestVirtualList;
+
+impl VirtualList for TestVirtualList {
+    fn item_count(&self) -> impl cushy::value::IntoDynamic<usize> {
+        Dynamic::new(100)
+    }
+    fn item_height(&self) -> impl cushy::value::IntoDynamic<cushy::styles::Dimension> {
+        Dynamic::new(cushy::styles::Dimension::Lp(Lp::inches_f(0.5)))
+    }
+    fn widget_at(&self, index: usize) -> impl MakeWidget {
+        // println!("Creating item {}", index);
+        format!("Item {}", index)
+    }
+}
 
 fn main() -> cushy::Result {
     let args = Args::parse();
@@ -70,6 +85,10 @@ fn main() -> cushy::Result {
             let selected_page = Dynamic::new(ActivePage::default());
 
             playlists_widget(playlists.items, selected_page)
+            .and(
+                virtual_list(TestVirtualList)
+            )
+                .into_columns()
                 .make_window()
                 .open(&mut app)
                 .unwrap();
