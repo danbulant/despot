@@ -21,6 +21,8 @@
         openssl
 
         alsa-lib
+
+        cargo-flamegraph
       ];
     in {
       config.devshells.default = {
