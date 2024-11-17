@@ -1,6 +1,5 @@
 use std::{
     collections::{HashMap, HashSet},
-    ops::Range,
     sync::{Arc, RwLock},
 };
 
@@ -8,13 +7,16 @@ use cushy::{
     figures::{units::Lp, Size},
     styles::{Dimension, DimensionRange},
     value::{Destination, Dynamic, Source},
-    widget::MakeWidget,
-    widgets::VirtualList,
+    widget::{MakeWidget, WidgetInstance},
+    widgets::{label::LabelOverflow, Image, Label, Space, VirtualList},
 };
-use futures_util::lock::Mutex;
+use itertools::Itertools;
 use rspotify::model::SavedTrack;
+use std::sync::Mutex;
 
-use crate::{api::SpotifyContextRef, nodebug::NoDebug, rt::tokio_runtime};
+use crate::{
+    api::SpotifyContextRef, nodebug::NoDebug, rt::tokio_runtime, widgets::image::ImageExt,
+};
 
 const PER_PAGE: usize = 50;
 
@@ -23,8 +25,25 @@ pub struct LikedSongsPage {
     tracks: Dynamic<HashMap<usize, SavedTrack>>,
     total_tracks: Dynamic<usize>,
 
+    track_images: Arc<Mutex<HashMap<usize, WidgetInstance>>>,
     context: NoDebug<SpotifyContextRef>,
     pages_loading: Arc<RwLock<HashSet<usize>>>,
+}
+
+fn get_or_create_track_image(
+    track_images: &Arc<Mutex<HashMap<usize, WidgetInstance>>>,
+    idx: usize,
+    create: impl FnOnce() -> WidgetInstance,
+) -> WidgetInstance {
+    println!("Getting image");
+    let mut locked = track_images.lock().unwrap();
+    if let Some(image) = locked.get(&idx) {
+        image.clone()
+    } else {
+        let image = create();
+        locked.insert(idx, image.clone());
+        image
+    }
 }
 
 impl LikedSongsPage {
@@ -35,6 +54,7 @@ impl LikedSongsPage {
             tracks: Default::default(),
             total_tracks: Default::default(),
             pages_loading: Default::default(),
+            track_images: Default::default(),
         }
     }
 
@@ -43,6 +63,14 @@ impl LikedSongsPage {
         let pages_loading = self.pages_loading;
         let context = self.context;
         let total_tracks = self.total_tracks.clone();
+        let track_images = self.track_images;
+
+        tracks
+            .for_each(|tracks| {
+                println!("Tracks: {}", tracks.len());
+            })
+            .persist();
+
         VirtualList::new(
             total_tracks.clone().map_each(|total| (*total).max(1)),
             move |index| {
@@ -81,14 +109,60 @@ impl LikedSongsPage {
                         }
                     }
                 });
-                tracks
-                    .map_each(move |tracks| {
-                        if let Some(track) = tracks.get(&index) {
-                            format!("{} - {}", track.track.name, track.track.artists[0].name)
-                        } else {
-                            format!("Loading...")
-                        }
+                let track = tracks.map_each(move |tracks| tracks.get(&index).cloned());
+                index
+                    .to_string()
+                    .and({
+                        get_or_create_track_image(&track_images, index, || {
+                            Image::new_empty()
+                                .with_url(track.map_each(|track| {
+                                    track
+                                        .as_ref()
+                                        .map(|track| track.track.album.images[0].url.clone())
+                                }))
+                                .size(Size::squared(Dimension::Lp(Lp::points(40))))
+                                .make_widget()
+                        })
                     })
+                    .and(track.map_each(|track| {
+                        track
+                            .as_ref()
+                            .map(|track| {
+                                Label::new(track.track.name.clone())
+                                    .overflow(LabelOverflow::Clip)
+                                    .and(
+                                        Label::new(
+                                            (track.track.artists)
+                                                .iter()
+                                                .map(|artist| artist.name.clone())
+                                                .join(", "),
+                                        )
+                                        .overflow(LabelOverflow::Clip),
+                                    )
+                                    .into_rows()
+                                    .make_widget()
+                            })
+                            .unwrap_or(Space::primary().make_widget())
+                    }))
+                    .and(track.map_each(|track| {
+                        track
+                            .as_ref()
+                            .map(|track| track.track.album.name.clone().make_widget())
+                            .unwrap_or(Space::primary().make_widget())
+                    }))
+                    .and(track.map_each(|track| {
+                        track
+                            .as_ref()
+                            .map(|track| track.added_at.to_string().make_widget())
+                            .unwrap_or(Space::primary().make_widget())
+                    }))
+                    .and(track.map_each(|track| {
+                        track
+                            .as_ref()
+                            .map(|track| track.track.duration.to_string().make_widget())
+                            .unwrap_or(Space::primary().make_widget())
+                    }))
+                    .into_columns()
                     .size(Size {
                         width: DimensionRange::default(),
                         height: Dimension::Lp(Lp::points(60)).into(),

@@ -1,4 +1,7 @@
+use cushy::figures::units::Lp;
+use cushy::figures::Size;
 use cushy::kludgine::Color;
+use cushy::styles::{Dimension, DimensionRange};
 use cushy::{
     value::{Destination, Dynamic, IntoDynamic, IntoValue, Source, Value},
     widget::{MakeWidget, WidgetList},
@@ -53,7 +56,10 @@ pub fn playlists_widget(
         }),
     )
     .vertical_scroll()
-    .expand_horizontally()
+    .size(Size {
+        width: Dimension::Lp(Lp::points(200)).into(),
+        height: DimensionRange::default(),
+    })
 }
 
 fn liked_songs_entry(selected_page: SelectedPage) -> impl MakeWidget {
@@ -82,7 +88,7 @@ where
     let (background, background_hover) = get_colors(is_active);
     Image::new_empty()
         .with_url(url)
-        .and(text.into_value().align_left().expand())
+        .and(text.into_value().align_left())
         .into_columns()
         .into_button()
         .on_click(callback)
