@@ -1,40 +1,30 @@
 use std::thread;
 
-use api::SpotifyContext;
+use api::{SpotifyContext, SpotifyContextRef};
 use auth::get_token;
 use clap::Parser;
 use cli::Args;
-use cushy::{figures::units::Lp, styles::Dimension, value::Dynamic, widget::MakeWidget, window::MakeWindow, Application, Open, PendingApp, Run, TokioRuntime};
+use cushy::{
+    value::Dynamic, widget::MakeWidget, window::MakeWindow, Application, Open, PendingApp, Run,
+    TokioRuntime,
+};
 use librespot_core::{authentication::Credentials, Session, SessionConfig};
-use librespot_playback::{audio_backend, config::{AudioFormat, PlayerConfig}, mixer::NoOpVolume, player::Player};
-use widgets::{library::playlist::playlists_widget, virtual_list::{VirtualListContent, VirtualList}, ActivePage};
+use librespot_playback::{
+    audio_backend,
+    config::{AudioFormat, PlayerConfig},
+    mixer::NoOpVolume,
+    player::Player,
+};
+use widgets::{library::playlist::playlists_widget, pages::liked::LikedSongsPage, ActivePage};
 
-mod vibrancy;
-mod theme;
-mod cli;
-mod auth;
-mod widgets;
-mod rt;
 mod api;
-
-#[derive(Debug)]
-struct TestVirtualList;
-
-impl VirtualListContent for TestVirtualList {
-    fn item_count(&self) -> impl cushy::value::IntoValue<usize> {
-        50
-    }
-    fn item_height(&self) -> impl cushy::value::IntoValue<cushy::styles::Dimension> {
-        cushy::styles::Dimension::Lp(Lp::inches_f(0.5))
-    }
-    fn widget_at(&self, index: usize) -> impl MakeWidget {
-        // println!("Creating item {}", index);
-        format!("Item {}", index)
-    }
-    fn width(&self) -> impl cushy::value::IntoValue<cushy::styles::Dimension> {
-        Dimension::Lp(Lp::inches_f(10.))
-    }
-}
+mod auth;
+mod cli;
+mod nodebug;
+mod rt;
+mod theme;
+mod vibrancy;
+mod widgets;
 
 fn main() -> cushy::Result {
     let args = Args::parse();
@@ -47,36 +37,44 @@ fn main() -> cushy::Result {
     let audio_format = AudioFormat::default();
     let credentials = Credentials::with_access_token(&token.access_token);
     let backend = audio_backend::find(None).unwrap();
-    
+
     let session;
 
     {
         let guard = app.cushy().enter_runtime();
         session = Session::new(session_config, None);
-        
-        let player = Player::new(player_config, session.clone(), Box::new(NoOpVolume), move || {
-            backend(None, audio_format)
-        });
-    
-        tokio::spawn({ let session = session.clone(); async move {
-            if let Err(e) = session.connect(credentials, false).await {
-                println!("Error connecting: {}", e);
+
+        let player = Player::new(
+            player_config,
+            session.clone(),
+            Box::new(NoOpVolume),
+            move || backend(None, audio_format),
+        );
+
+        tokio::spawn({
+            let session = session.clone();
+            async move {
+                if let Err(e) = session.connect(credentials, false).await {
+                    println!("Error connecting: {}", e);
+                }
             }
-        }});
-        
+        });
+
         thread::spawn(move || {
             let mut channel = player.get_player_event_channel();
             loop {
                 let event = channel.blocking_recv();
                 if let Some(event) = event {
                     dbg!(event);
-                } else { break; }
+                } else {
+                    break;
+                }
             }
         });
 
         dbg!(session.user_data());
-    
-        let context = SpotifyContext::new(session, token);
+
+        let context = SpotifyContextRef::new(SpotifyContext::new(session, token));
 
         let mut app = app.as_app();
         tokio::spawn(async move {
@@ -88,11 +86,10 @@ fn main() -> cushy::Result {
 
             let selected_page = Dynamic::new(ActivePage::default());
 
-            // playlists_widget(playlists.items, selected_page)
-            // .and(
-                VirtualList::new(TestVirtualList)
-            // )
-            //     .into_columns()
+            playlists_widget(playlists.items, selected_page)
+                .and(LikedSongsPage::new(context.clone()).into_widget())
+                .into_columns()
+                .expand()
                 .make_window()
                 .open(&mut app)
                 .unwrap();

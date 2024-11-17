@@ -1,4 +1,5 @@
 use std::future::Future;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use chrono::TimeDelta;
@@ -6,7 +7,7 @@ use futures_util::lock::Mutex;
 use librespot_core::Session;
 use librespot_oauth::OAuthToken;
 use reqwest::StatusCode;
-use rspotify::model::{Page, PrivateUser, SimplifiedPlaylist, UserId};
+use rspotify::model::{Page, PrivateUser, SavedTrack, SimplifiedPlaylist, UserId};
 use rspotify::prelude::*;
 use rspotify::{AuthCodeSpotify, ClientError, ClientResult, Config, Token};
 use rspotify::http::HttpError;
@@ -19,6 +20,8 @@ pub struct SpotifyContext {
     api: AuthCodeSpotify,
     token: Mutex<OAuthToken>
 }
+
+pub type SpotifyContextRef = Arc<SpotifyContext>;
 
 impl SpotifyContext {
     pub fn new(session: Session, token: OAuthToken) -> SpotifyContext {
@@ -110,6 +113,10 @@ impl SpotifyContext {
 
     pub async fn current_user_playlists(&self, limit: Option<u32>, offset: Option<u32>) -> Result<Page<SimplifiedPlaylist>, ()> {
         self.api_with_retry(|api| api.current_user_playlists_manual(limit, offset)).await.ok_or(())
+    }
+
+    pub async fn current_user_saved_tracks(&self, limit: Option<u32>, offset: Option<u32>) -> Result<Page<SavedTrack>, ()> {
+        self.api_with_retry(|api| api.current_user_saved_tracks_manual(None, limit, offset)).await.ok_or(())
     }
 
 }
