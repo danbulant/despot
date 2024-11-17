@@ -1,5 +1,5 @@
 
 [target.x86_64-unknown-linux-gnu]
 # linker = "/usr/bin/clang-15"
-rustflags = ["-C", "link-arg=--ld-path=/home/dan/.nix-profile/bin/mold"]
+# rustflags = ["-C", "link-arg=--ld-path=/home/dan/.nix-profile/bin/mold"]
 # rustflags = ["-C", "link-arg=-fuse-ld=/home/dan/.nix-profile/bin/mold"]
