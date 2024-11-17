@@ -8,7 +8,10 @@ use cushy::{
     styles::{Dimension, DimensionRange},
     value::{Destination, Dynamic, Source},
     widget::{MakeWidget, WidgetInstance},
-    widgets::{label::LabelOverflow, Image, Label, Space, VirtualList},
+    widgets::{
+        label::{Displayable, LabelOverflow},
+        Image, Label, Space, VirtualList,
+    },
 };
 use itertools::Itertools;
 use rspotify::model::SavedTrack;
@@ -35,7 +38,6 @@ fn get_or_create_track_image(
     idx: usize,
     create: impl FnOnce() -> WidgetInstance,
 ) -> WidgetInstance {
-    println!("Getting image");
     let mut locked = track_images.lock().unwrap();
     if let Some(image) = locked.get(&idx) {
         image.clone()
@@ -147,19 +149,43 @@ impl LikedSongsPage {
                     .and(track.map_each(|track| {
                         track
                             .as_ref()
-                            .map(|track| track.track.album.name.clone().make_widget())
+                            .map(|track| {
+                                track
+                                    .track
+                                    .album
+                                    .name
+                                    .clone()
+                                    .into_label()
+                                    .overflow(LabelOverflow::Clip)
+                                    .make_widget()
+                            })
                             .unwrap_or(Space::primary().make_widget())
                     }))
                     .and(track.map_each(|track| {
                         track
                             .as_ref()
-                            .map(|track| track.added_at.to_string().make_widget())
+                            .map(|track| {
+                                track
+                                    .added_at
+                                    .to_string()
+                                    .into_label()
+                                    .overflow(LabelOverflow::Clip)
+                                    .make_widget()
+                            })
                             .unwrap_or(Space::primary().make_widget())
                     }))
                     .and(track.map_each(|track| {
                         track
                             .as_ref()
-                            .map(|track| track.track.duration.to_string().make_widget())
+                            .map(|track| {
+                                track
+                                    .track
+                                    .duration
+                                    .to_string()
+                                    .into_label()
+                                    .overflow(LabelOverflow::Clip)
+                                    .make_widget()
+                            })
                             .unwrap_or(Space::primary().make_widget())
                     }))
                     .into_columns()
