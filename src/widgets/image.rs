@@ -40,13 +40,15 @@ static CLIENT: LazyLock<ClientWithMiddleware> = LazyLock::new(|| {
 
 impl ImageExt for Image {
     fn new_empty() -> Self {
-        Image::new(Dynamic::new(get_empty_texture()))
+        // println!("new empty");
+        Image::new(Dynamic::new(get_empty_texture())).aspect_fit()
     }
 
     /// Makes the image connected to a URL
     /// Calling this multiple times on a single image may cause memory leaks
     fn load_url(&mut self, url: Dynamic<Option<String>>) -> CallbackHandle {
         // let texture = Dynamic::new(get_empty_texture());
+        // println!("load_url called");
         match &mut self.contents {
             Value::Constant(_) => self.contents = Value::Dynamic(Dynamic::new(get_empty_texture())),
             Value::Dynamic(dynamic) => dynamic.set(get_empty_texture()),
@@ -64,7 +66,6 @@ impl ImageExt for Image {
                 if texture_count <= 1 {
                     return Err(CallbackDisconnected);
                 }
-                println!("loading url {:?}", url);
                 let guard = tokio_runtime().enter();
                 let url = url.clone();
                 let prev_request_join = prev_request_join.clone();
@@ -75,7 +76,6 @@ impl ImageExt for Image {
                     if let Some(prev_request_join) = prev_request_join.take() {
                         prev_request_join.abort();
                     }
-                    println!("loading url {:?}", url);
                     if let Some(url) = url {
                         let texture = texture.clone();
                         let client = client.clone();
@@ -83,7 +83,7 @@ impl ImageExt for Image {
                             let response = client.get(url).send().await.unwrap();
                             let bytes = response.bytes().await.unwrap();
                             let image = image::load_from_memory(&bytes).unwrap();
-                            // let image = image.resize(128, 128, FilterType::Lanczos3);
+                            let image = image.resize(128, 128, FilterType::Lanczos3);
                             let image_texture = LazyTexture::from_image(
                                 image,
                                 cushy::kludgine::wgpu::FilterMode::Linear,

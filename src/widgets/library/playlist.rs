@@ -1,7 +1,8 @@
 use cushy::figures::units::Lp;
 use cushy::figures::Size;
 use cushy::kludgine::Color;
-use cushy::styles::{Dimension, DimensionRange};
+use cushy::styles::{CornerRadii, Dimension, DimensionRange};
+use cushy::widgets::image::ImageCornerRadius;
 use cushy::{
     value::{Destination, Dynamic, IntoDynamic, IntoValue, Source, Value},
     widget::{MakeWidget, WidgetList},
@@ -88,6 +89,8 @@ where
     let (background, background_hover) = get_colors(is_active);
     Image::new_empty()
         .with_url(url)
+        .with(&ImageCornerRadius, Dimension::Lp(Lp::points(4)))
+        .size(Size::squared(Dimension::Lp(Lp::points(40))))
         .and(text.into_value().align_left())
         .into_columns()
         .into_button()

@@ -22,7 +22,7 @@
 
         alsa-lib
 
-        cargo-flamegraph
+        # cargo-flamegraph
       ];
     in {
       config.devshells.default = {

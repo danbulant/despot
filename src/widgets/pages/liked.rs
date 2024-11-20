@@ -3,12 +3,14 @@ use std::{
     sync::{Arc, RwLock},
 };
 
+use chrono::TimeDelta;
 use cushy::{
     figures::{units::Lp, Size},
-    styles::{Dimension, DimensionRange},
+    styles::{CornerRadii, Dimension, DimensionRange, Edges},
     value::{Destination, Dynamic, Source},
     widget::{MakeWidget, WidgetInstance},
     widgets::{
+        image::ImageCornerRadius,
         label::{Displayable, LabelOverflow},
         Image, Label, Space, VirtualList,
     },
@@ -88,7 +90,7 @@ impl LikedSongsPage {
                         {
                             pages_loading.write().unwrap().insert(page);
                             tokio_runtime().spawn(async move {
-                                println!("Loading page {} idx {}", page, index);
+                                // println!("Loading page {} idx {}", page, index);
                                 let saved_tracks = context
                                     .current_user_saved_tracks(
                                         Some(PER_PAGE as _),
@@ -100,7 +102,7 @@ impl LikedSongsPage {
                                     // pages_loading.write().unwrap().remove(&page);
                                     return;
                                 };
-                                println!("Loaded page {} got tracks {}", page, saved_tracks.total);
+                                // println!("Loaded page {} got tracks {}", page, saved_tracks.total);
                                 total_tracks.set(saved_tracks.total as usize);
                                 tracks.map_mut(|mut tracks| {
                                     for (i, track) in saved_tracks.items.into_iter().enumerate() {
@@ -114,6 +116,11 @@ impl LikedSongsPage {
                 let track = tracks.map_each(move |tracks| tracks.get(&index).cloned());
                 index
                     .to_string()
+                    .size(Size {
+                        width: Dimension::Lp(Lp::points(40)).into(),
+                        height: DimensionRange::default(),
+                    })
+                    .fit_horizontally()
                     .and({
                         get_or_create_track_image(&track_images, index, || {
                             Image::new_empty()
@@ -123,78 +130,104 @@ impl LikedSongsPage {
                                         .map(|track| track.track.album.images[0].url.clone())
                                 }))
                                 .size(Size::squared(Dimension::Lp(Lp::points(40))))
+                                .with(&ImageCornerRadius, Dimension::Lp(Lp::points(4)))
                                 .make_widget()
                         })
+                        .size(Size::squared(Dimension::Lp(Lp::points(40))))
                     })
-                    .and(track.map_each(|track| {
+                    .and(
                         track
-                            .as_ref()
-                            .map(|track| {
-                                Label::new(track.track.name.clone())
-                                    .overflow(LabelOverflow::Clip)
-                                    .and(
-                                        Label::new(
-                                            (track.track.artists)
-                                                .iter()
-                                                .map(|artist| artist.name.clone())
-                                                .join(", "),
-                                        )
-                                        .overflow(LabelOverflow::Clip),
-                                    )
-                                    .into_rows()
-                                    .make_widget()
-                            })
-                            .unwrap_or(Space::primary().make_widget())
-                    }))
-                    .and(track.map_each(|track| {
-                        track
-                            .as_ref()
-                            .map(|track| {
+                            .map_each(|track| {
                                 track
-                                    .track
-                                    .album
-                                    .name
-                                    .clone()
-                                    .into_label()
-                                    .overflow(LabelOverflow::Clip)
-                                    .make_widget()
+                                    .as_ref()
+                                    .map(|track| {
+                                        Label::new(track.track.name.clone())
+                                            .overflow(LabelOverflow::Clip)
+                                            .align_left()
+                                            .and(
+                                                Label::new(
+                                                    (track.track.artists)
+                                                        .iter()
+                                                        .map(|artist| artist.name.clone())
+                                                        .join(", "),
+                                                )
+                                                .overflow(LabelOverflow::Clip)
+                                                .align_left(),
+                                            )
+                                            .into_rows()
+                                            .make_widget()
+                                    })
+                                    .unwrap_or(Space::primary().make_widget())
                             })
-                            .unwrap_or(Space::primary().make_widget())
-                    }))
-                    .and(track.map_each(|track| {
+                            .align_left()
+                            .expand_weighted(2),
+                    )
+                    .and(
                         track
-                            .as_ref()
-                            .map(|track| {
+                            .map_each(|track| {
                                 track
-                                    .added_at
-                                    .to_string()
-                                    .into_label()
-                                    .overflow(LabelOverflow::Clip)
-                                    .make_widget()
+                                    .as_ref()
+                                    .map(|track| {
+                                        track
+                                            .track
+                                            .album
+                                            .name
+                                            .clone()
+                                            .into_label()
+                                            .overflow(LabelOverflow::Clip)
+                                            .make_widget()
+                                    })
+                                    .unwrap_or(Space::primary().make_widget())
                             })
-                            .unwrap_or(Space::primary().make_widget())
-                    }))
-                    .and(track.map_each(|track| {
+                            .align_left()
+                            .expand_weighted(1),
+                    )
+                    .and(
                         track
-                            .as_ref()
-                            .map(|track| {
+                            .map_each(|track| {
                                 track
-                                    .track
-                                    .duration
-                                    .to_string()
-                                    .into_label()
-                                    .overflow(LabelOverflow::Clip)
-                                    .make_widget()
+                                    .as_ref()
+                                    .map(|track| {
+                                        track
+                                            .added_at
+                                            .format("%B %-e, %Y")
+                                            .to_string()
+                                            .into_label()
+                                            .overflow(LabelOverflow::Clip)
+                                            .make_widget()
+                                    })
+                                    .unwrap_or(Space::primary().make_widget())
                             })
-                            .unwrap_or(Space::primary().make_widget())
-                    }))
+                            .align_left()
+                            .expand_weighted(1),
+                    )
+                    .and(
+                        track
+                            .map_each(|track| {
+                                track
+                                    .as_ref()
+                                    .map(|track| {
+                                        format_delta(track.track.duration)
+                                            .into_label()
+                                            .overflow(LabelOverflow::Clip)
+                                            .make_widget()
+                                    })
+                                    .unwrap_or(Space::primary().make_widget())
+                            })
+                            .pad_by(Edges::default().with_horizontal(Dimension::Lp(Lp::points(5)))),
+                    )
                     .into_columns()
                     .size(Size {
                         width: DimensionRange::default(),
                         height: Dimension::Lp(Lp::points(60)).into(),
                     })
+                    .expand_horizontally()
             },
         )
         .expand_horizontally()
     }
+}
+
+fn format_delta(delta: TimeDelta) -> String {
+    format!("{}:{:02}", delta.num_minutes(), delta.num_seconds() % 60)
 }
