@@ -6,13 +6,18 @@ edition = "2021"
 
 [dependencies]
 # cushy = { version = "0.4.0", features=["tokio", "tokio-multi-thread", "plotters", "roboto-flex"], default-features = false }
-cushy = { git = "https://github.com/khonsulabs/cushy.git", branch = "main", features=["tokio", "tokio-multi-thread", "plotters", "roboto-flex"] }
+cushy = { git = "https://github.com/khonsulabs/cushy.git", branch = "main", features = [
+    "tokio",
+    "tokio-multi-thread",
+    "plotters",
+    "roboto-flex",
+] }
 tokio = { version = "1.40.0", features = ["rt", "rt-multi-thread"] }
 plotters = { version = "0.3.7", default-features = false }
 image = { version = "0.25.0", features = ["png"] }
 mpris = "2.0.1"
 reqwest = "0.12.8"
-reqwest-middleware="0.3.3"
+reqwest-middleware = "0.3.3"
 http-cache-reqwest = "0.14.0"
 color_quant = "1.0"
 hsl = "0.1.1"
@@ -22,9 +27,18 @@ clap = { version = "4.5.20", features = ["derive"] }
 chrono = "0.4"
 librespot-core = { git = "https://github.com/photovoltex/librespot.git", branch = "integrate-dealer" }
 librespot-oauth = { git = "https://github.com/photovoltex/librespot.git", branch = "integrate-dealer" }
-librespot-playback = { git = "https://github.com/photovoltex/librespot.git", branch = "integrate-dealer" }
+librespot-playback = { git = "https://github.com/photovoltex/librespot.git", branch = "integrate-dealer", features = [
+    "rodio-backend",
+] }
 librespot-protocol = { git = "https://github.com/photovoltex/librespot.git", branch = "integrate-dealer" }
-futures-util = { version = "0.3", features = ["alloc", "bilock", "sink", "unstable"] }
+librespot-connect = { git = "https://github.com/photovoltex/librespot.git", branch = "integrate-dealer" }
+librespot-metadata = { git = "https://github.com/photovoltex/librespot.git", branch = "integrate-dealer" }
+futures-util = { version = "0.3", features = [
+    "alloc",
+    "bilock",
+    "sink",
+    "unstable",
+] }
 rspotify = { version = "0.13.3" }
 oauth2 = "4.4"
 

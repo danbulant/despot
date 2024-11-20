@@ -5,13 +5,14 @@ pub mod image;
 pub mod library;
 pub mod owned;
 pub mod pages;
+pub mod playback;
 
 #[derive(PartialEq, Debug, Default)]
 pub enum ActivePage {
     #[default]
     LikedSongs,
     Playlist(SimplifiedPlaylist),
-    Album(SimplifiedAlbum)
+    Album(SimplifiedAlbum),
 }
 
 type SelectedPage = Dynamic<ActivePage>;
