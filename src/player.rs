@@ -3,9 +3,10 @@ use std::{
     time::{Duration, Instant},
 };
 
-use cushy::value::{Destination, Dynamic};
+use cushy::value::{Destination, Dynamic, Source};
 use librespot_metadata::audio::AudioItem;
 use librespot_playback::player::{Player, PlayerEvent};
+use tokio::time;
 
 pub type DynamicPlayer = Arc<DynamicPlayerInner>;
 
@@ -59,11 +60,38 @@ impl DynamicPlayerInner {
             track_progress: Default::default(),
         }
     }
+    fn update_position(&self) {
+        let state = self.state.get();
+        let track_progress = match state {
+            PlayerState::Loading {
+                loading_at: duration,
+            }
+            | PlayerState::Paused {
+                paused_at: duration,
+            } => Some(duration),
+            PlayerState::Stopped | PlayerState::Disconnected => None,
+            PlayerState::Playing => {
+                let started_at = *self.started_at.lock().unwrap();
+                let started_at = started_at.unwrap_or_else(Instant::now);
+                let position = Instant::now() - started_at;
+                Some(position)
+            }
+        };
+        self.track_progress.set(track_progress);
+    }
+    /// Run the DynamicPlayer event loop
+    /// This updates the player state and track progress
+    /// Run this only once per player (usually once per app)
     pub async fn run(&self) {
         let mut channel = self.player.get_player_event_channel();
+        let mut interval = time::interval(time::Duration::from_millis(100));
+        interval.set_missed_tick_behavior(time::MissedTickBehavior::Skip);
         let mut id = 0u64;
         loop {
             tokio::select! {
+                _ = interval.tick() => {
+                    self.update_position();
+                }
                 event = channel.recv() => {
                     if let Some(event) = event {
                         match event {
@@ -82,6 +110,7 @@ impl DynamicPlayerInner {
                                 self.state.set(PlayerState::Loading {
                                     loading_at: Duration::from_millis(position_ms as u64),
                                 });
+                                self.update_position();
                             }
                             PlayerEvent::Playing {
                                 play_request_id,
@@ -92,6 +121,7 @@ impl DynamicPlayerInner {
                                 self.state.set(PlayerState::Playing);
                                 *self.started_at.lock().unwrap() =
                                     Some(Instant::now() - Duration::from_millis(position_ms as u64));
+                                self.update_position();
                             }
                             PlayerEvent::Paused {
                                 play_request_id,
@@ -102,6 +132,7 @@ impl DynamicPlayerInner {
                                 self.state.set(PlayerState::Paused {
                                     paused_at: Duration::from_millis(position_ms as u64),
                                 });
+                                self.update_position();
                             }
                             PlayerEvent::Unavailable {
                                 play_request_id,
@@ -121,6 +152,7 @@ impl DynamicPlayerInner {
                                 println!("PositionCorrection {play_request_id} {position_ms} {track_id}");
                                 *self.started_at.lock().unwrap() =
                                     Some(Instant::now() - Duration::from_millis(position_ms as u64));
+                                self.update_position();
                             }
                             PlayerEvent::Seeked {
                                 play_request_id,
@@ -130,11 +162,13 @@ impl DynamicPlayerInner {
                                 println!("Seeked {play_request_id} {position_ms} {track_id}");
                                 *self.started_at.lock().unwrap() =
                                     Some(Instant::now() - Duration::from_millis(position_ms as u64));
+                                self.update_position();
                             }
                             PlayerEvent::TrackChanged { audio_item } => {
                                 println!("TrackChanged {}", audio_item.uri);
                                 dbg!(&audio_item);
                                 *self.track.lock() = Some(audio_item);
+                                self.update_position();
                             }
                             PlayerEvent::SessionConnected {
                                 connection_id,
