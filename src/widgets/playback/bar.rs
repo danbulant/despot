@@ -5,13 +5,17 @@ use cushy::{
     styles::{Dimension, DimensionRange},
     value::{Dynamic, Source},
     widget::MakeWidget,
-    widgets::{image::ImageCornerRadius, Button, Image, Label, Slider},
+    widgets::{
+        image::ImageCornerRadius,
+        label::{Displayable, LabelOverflow},
+        Button, Image, Label, Slider,
+    },
 };
 use itertools::Itertools;
 use librespot_metadata::audio::UniqueFields;
 
 use crate::{
-    icons::{icon, SKIP_PREVIOUS},
+    icons::{icon, iconbtn, IntoIcon, PAUSE, PLAY, REPEAT, SHUFFLE, SKIP_NEXT, SKIP_PREVIOUS},
     player::{DynamicPlayer, PlayerState},
     widgets::image::ImageExt,
 };
@@ -32,7 +36,9 @@ fn meta(player: DynamicPlayer) -> impl MakeWidget {
                 .flatten()
         }))
         .with(&ImageCornerRadius, Dimension::Lp(Lp::points(4)))
-        .size(Size::squared(Dimension::Lp(Lp::inches_f(1.))))
+        .size(Size::squared(Dimension::Lp(Lp::inches_f(0.8))))
+        .pad()
+        .align_left()
         .and(
             player
                 .track
@@ -43,23 +49,30 @@ fn meta(player: DynamicPlayer) -> impl MakeWidget {
                             track
                                 .name
                                 .clone()
-                                .and(match &track.unique_fields {
-                                    UniqueFields::Track {
-                                        artists,
-                                        album,
-                                        album_artists,
-                                        popularity,
-                                        number,
-                                        disc_number,
-                                    } => {
-                                        artists.iter().map(|artist| artist.name.clone()).join(", ")
+                                .into_label()
+                                .overflow(LabelOverflow::Clip)
+                                .and(
+                                    match &track.unique_fields {
+                                        UniqueFields::Track {
+                                            artists,
+                                            album,
+                                            album_artists,
+                                            popularity,
+                                            number,
+                                            disc_number,
+                                        } => artists
+                                            .iter()
+                                            .map(|artist| artist.name.clone())
+                                            .join(", "),
+                                        UniqueFields::Episode {
+                                            description,
+                                            publish_time,
+                                            show_name,
+                                        } => show_name.clone(),
                                     }
-                                    UniqueFields::Episode {
-                                        description,
-                                        publish_time,
-                                        show_name,
-                                    } => show_name.clone(),
-                                })
+                                    .into_label()
+                                    .overflow(LabelOverflow::Clip),
+                                )
                                 .into_rows()
                                 .make_widget()
                         })
@@ -78,20 +91,19 @@ fn meta(player: DynamicPlayer) -> impl MakeWidget {
 }
 
 fn controls(player: DynamicPlayer) -> impl MakeWidget {
-    icon("shuffle")
-        .into_button()
-        .and(icon(SKIP_PREVIOUS).into_button())
+    iconbtn(SHUFFLE)
+        .and(iconbtn(SKIP_PREVIOUS))
         .and(player.state.map_each({
             let player = player.clone();
             move |state| {
                 let player = player.clone();
                 let state = state.clone();
                 match &state {
-                    PlayerState::Playing => "pause",
-                    PlayerState::Paused { .. } => "play",
-                    _ => "play",
+                    PlayerState::Playing => PAUSE,
+                    PlayerState::Paused { .. } => PLAY,
+                    _ => PLAY,
                 }
-                .into_button()
+                .into_iconbtn()
                 .on_click(move |_| match state {
                     PlayerState::Playing => {
                         player.player.pause();
@@ -103,8 +115,8 @@ fn controls(player: DynamicPlayer) -> impl MakeWidget {
                 .make_widget()
             }
         }))
-        .and("skip".into_button())
-        .and("repeat".into_button())
+        .and(iconbtn(SKIP_NEXT))
+        .and(iconbtn(REPEAT))
         .into_columns()
         .centered()
         .and(time(player))

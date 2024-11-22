@@ -119,11 +119,11 @@ impl LikedSongsPage {
                 let track = tracks.map_each(move |tracks| tracks.get(&index).cloned());
                 index
                     .to_string()
+                    .align_right()
                     .size(Size {
-                        width: Dimension::Lp(Lp::points(40)).into(),
+                        width: Dimension::Lp(Lp::points(20)).into(),
                         height: DimensionRange::default(),
                     })
-                    .fit_horizontally()
                     .and({
                         get_or_create_track_image(&track_images, index, |index| {
                             Image::new_empty()
@@ -213,6 +213,7 @@ impl LikedSongsPage {
                                         format_delta(track.track.duration)
                                             .into_label()
                                             .overflow(LabelOverflow::Clip)
+                                            .align_right()
                                             .make_widget()
                                     })
                                     .unwrap_or(Space::primary().make_widget())

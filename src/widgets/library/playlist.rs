@@ -1,5 +1,5 @@
 use cushy::figures::units::Lp;
-use cushy::figures::Size;
+use cushy::figures::{Size, Zero};
 use cushy::kludgine::Color;
 use cushy::styles::{CornerRadii, Dimension, DimensionRange};
 use cushy::widgets::image::ImageCornerRadius;
@@ -56,6 +56,7 @@ pub fn playlists_widget(
             list
         }),
     )
+    .gutter(Dimension::ZERO)
     .vertical_scroll()
     .size(Size {
         width: Dimension::Lp(Lp::points(200)).into(),
@@ -97,7 +98,6 @@ where
         .on_click(callback)
         .with(&ButtonBackground, background)
         .with(&ButtonHoverBackground, background_hover)
-        .pad()
 }
 
 /// Returns `background` and `background_hover` colors for a library entry.
