@@ -33,7 +33,9 @@ static CLIENT: LazyLock<ClientWithMiddleware> = LazyLock::new(|| {
     ClientBuilder::new(Client::new())
         .with(Cache(HttpCache {
             mode: CacheMode::Default,
-            manager: CACacheManager::default(),
+            manager: CACacheManager {
+                path: "./cache/http-cacache".into(),
+            },
             options: HttpCacheOptions::default(),
         }))
         .build()

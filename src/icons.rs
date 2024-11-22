@@ -13,13 +13,11 @@ use cushy::{
 
 static FONT: OnceLock<LoadedFont> = OnceLock::new();
 
-pub fn load_fonts() -> FontCollection {
-    let fonts = FontCollection::default();
-    let font = fonts.push_unloadable(
+pub fn load_fonts(col: &FontCollection) {
+    let font = col.push_unloadable(
         include_bytes!("../fonts/MaterialSymbolsOutlined[FILL,GRAD,opsz,wght].ttf").into(),
     );
     FONT.set(font).map_err(|_| ()).unwrap();
-    fonts
 }
 
 fn font_component() -> DynamicComponent {

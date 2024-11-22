@@ -13,7 +13,7 @@ use librespot_connect::{
     spirc::{Spirc, SpircLoadCommand},
     state::ConnectStateConfig,
 };
-use librespot_core::{authentication::Credentials, Session, SessionConfig};
+use librespot_core::{authentication::Credentials, cache::Cache, Session, SessionConfig};
 use librespot_playback::{
     audio_backend,
     config::{AudioFormat, PlayerConfig},
@@ -40,21 +40,41 @@ mod widgets;
 fn main() -> cushy::Result {
     let args = Args::parse();
     let app = PendingApp::new(TokioRuntime::default());
+    // doesn't load fonts correctly yet, cushy bug
+    // load_fonts(app.cushy().fonts());
 
     let token = get_token().unwrap();
 
+    let cache = match Cache::new(None, Some("./cache/volume"), Some("./cache/audio"), None) {
+        Ok(cache) => Some(cache),
+        Err(e) => {
+            eprintln!("Failed to create cache: {}", e);
+            None
+        }
+    };
     let session_config = SessionConfig::default();
     let player_config = PlayerConfig::default();
     let audio_format = AudioFormat::default();
     let credentials = Credentials::with_access_token(&token.access_token);
-    let connect_config = ConnectStateConfig::default();
+    let default_connect_config = ConnectStateConfig::default();
+    let connect_config = ConnectStateConfig {
+        name: "Despot".to_string(),
+        device_type: librespot_core::config::DeviceType::Computer,
+        volume_steps: 256,
+        initial_volume: cache
+            .as_ref()
+            .and_then(Cache::volume)
+            .map(Into::into)
+            .unwrap_or(default_connect_config.initial_volume),
+        ..Default::default()
+    };
     let backend = audio_backend::find(None).unwrap();
 
     let session;
 
     {
         let guard = app.cushy().enter_runtime();
-        session = Session::new(session_config, None);
+        session = Session::new(session_config, cache);
 
         dbg!(session.user_data());
 
@@ -88,13 +108,12 @@ fn main() -> cushy::Result {
             tokio::join!(spirc_task, dynplayer2.run(), async move {
                 let user = context.current_user().await.unwrap();
                 dbg!(&user);
-                // let userid = user.id;
 
                 let playlists = context.current_user_playlists(None, None).await.unwrap();
 
                 let selected_page = Dynamic::new(ActivePage::default());
 
-                let mut win = playlists_widget(playlists.items, selected_page)
+                let win = playlists_widget(playlists.items, selected_page)
                     .and(LikedSongsPage::new(context.clone()).into_widget())
                     .into_columns()
                     .expand()
@@ -102,8 +121,7 @@ fn main() -> cushy::Result {
                     .into_rows()
                     .expand()
                     .into_window();
-                let fonts = load_fonts(/*app.cushy()*/);
-                win.fonts = fonts;
+                load_fonts(&win.fonts);
                 win.open(&mut app).unwrap();
             });
         });

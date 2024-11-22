@@ -121,7 +121,7 @@ impl LikedSongsPage {
                     .to_string()
                     .align_right()
                     .size(Size {
-                        width: Dimension::Lp(Lp::points(20)).into(),
+                        width: Dimension::Lp(Lp::points(30)).into(),
                         height: DimensionRange::default(),
                     })
                     .and({
