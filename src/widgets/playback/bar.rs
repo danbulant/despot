@@ -5,12 +5,13 @@ use cushy::{
     styles::{Dimension, DimensionRange},
     value::{Dynamic, Source},
     widget::MakeWidget,
-    widgets::{Button, Image, Label, Slider},
+    widgets::{image::ImageCornerRadius, Button, Image, Label, Slider},
 };
 use itertools::Itertools;
 use librespot_metadata::audio::UniqueFields;
 
 use crate::{
+    icons::{icon, SKIP_PREVIOUS},
     player::{DynamicPlayer, PlayerState},
     widgets::image::ImageExt,
 };
@@ -25,11 +26,12 @@ pub fn bar(player: DynamicPlayer) -> impl MakeWidget {
 fn meta(player: DynamicPlayer) -> impl MakeWidget {
     Image::new_empty()
         .with_url(player.track.map_each(|track| {
-            dbg!(track
+            track
                 .as_ref()
                 .map(|track| track.covers.first().map(|cover| cover.url.clone()))
-                .flatten())
+                .flatten()
         }))
+        .with(&ImageCornerRadius, Dimension::Lp(Lp::points(4)))
         .size(Size::squared(Dimension::Lp(Lp::inches_f(1.))))
         .and(
             player
@@ -63,6 +65,8 @@ fn meta(player: DynamicPlayer) -> impl MakeWidget {
                         })
                         .unwrap_or(Label::<String>::new("No track found").make_widget())
                 })
+                .align_left()
+                .pad()
                 .expand(),
         )
         .into_columns()
@@ -74,17 +78,30 @@ fn meta(player: DynamicPlayer) -> impl MakeWidget {
 }
 
 fn controls(player: DynamicPlayer) -> impl MakeWidget {
-    "shuffle"
+    icon("shuffle")
         .into_button()
-        .and("previous".into_button())
-        .and(player.state.map_each(|state| {
-            match state {
-                PlayerState::Playing => "pause",
-                PlayerState::Paused { .. } => "play",
-                _ => "play",
+        .and(icon(SKIP_PREVIOUS).into_button())
+        .and(player.state.map_each({
+            let player = player.clone();
+            move |state| {
+                let player = player.clone();
+                let state = state.clone();
+                match &state {
+                    PlayerState::Playing => "pause",
+                    PlayerState::Paused { .. } => "play",
+                    _ => "play",
+                }
+                .into_button()
+                .on_click(move |_| match state {
+                    PlayerState::Playing => {
+                        player.player.pause();
+                    }
+                    _ => {
+                        player.player.play();
+                    }
+                })
+                .make_widget()
             }
-            .into_button()
-            .make_widget()
         }))
         .and("skip".into_button())
         .and("repeat".into_button())
@@ -99,7 +116,7 @@ fn time(player: DynamicPlayer) -> impl MakeWidget {
         track
             .as_ref()
             .map(|track| track.duration_ms as f64 / 1000.)
-            .unwrap_or(0.)
+            .unwrap_or(1.)
     });
     let slider = Slider::from_value(player.track_progress.map_each(|progress| {
         progress
@@ -134,5 +151,5 @@ fn format_time(time: Duration) -> String {
 }
 
 fn vol(player: DynamicPlayer) -> impl MakeWidget {
-    "vol control here"
+    "vol control here".pad()
 }

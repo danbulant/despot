@@ -10,13 +10,15 @@ use cushy::{
     value::{Destination, Dynamic, Source},
     widget::{MakeWidget, WidgetInstance},
     widgets::{
+        button::ButtonKind,
         image::ImageCornerRadius,
         label::{Displayable, LabelOverflow},
         Image, Label, Space, VirtualList,
     },
 };
 use itertools::Itertools;
-use rspotify::model::SavedTrack;
+use librespot_core::SpotifyId;
+use rspotify::model::{Id, SavedTrack};
 use std::sync::Mutex;
 
 use crate::{
@@ -38,13 +40,13 @@ pub struct LikedSongsPage {
 fn get_or_create_track_image(
     track_images: &Arc<Mutex<HashMap<usize, WidgetInstance>>>,
     idx: usize,
-    create: impl FnOnce() -> WidgetInstance,
+    create: impl FnOnce(usize) -> WidgetInstance,
 ) -> WidgetInstance {
     let mut locked = track_images.lock().unwrap();
     if let Some(image) = locked.get(&idx) {
         image.clone()
     } else {
-        let image = create();
+        let image = create(idx);
         locked.insert(idx, image.clone());
         image
     }
@@ -84,6 +86,7 @@ impl LikedSongsPage {
                 let page = index / PER_PAGE;
                 tracks.map_ref({
                     let tracks = tracks.clone();
+                    let context = context.clone();
                     |loaded_tracks| {
                         if !loaded_tracks.contains_key(&index)
                             && !pages_loading.read().unwrap().contains(&page)
@@ -122,12 +125,12 @@ impl LikedSongsPage {
                     })
                     .fit_horizontally()
                     .and({
-                        get_or_create_track_image(&track_images, index, || {
+                        get_or_create_track_image(&track_images, index, |index| {
                             Image::new_empty()
-                                .with_url(track.map_each(|track| {
-                                    track
-                                        .as_ref()
-                                        .map(|track| track.track.album.images[0].url.clone())
+                                .with_url(tracks.map_each(move |tracks| {
+                                    tracks
+                                        .get(&index)
+                                        .map(|track| (&track.track.album.images)[0].url.clone())
                                 }))
                                 .size(Size::squared(Dimension::Lp(Lp::points(40))))
                                 .with(&ImageCornerRadius, Dimension::Lp(Lp::points(4)))
@@ -217,11 +220,32 @@ impl LikedSongsPage {
                             .pad_by(Edges::default().with_horizontal(Dimension::Lp(Lp::points(5)))),
                     )
                     .into_columns()
+                    .centered()
                     .size(Size {
                         width: DimensionRange::default(),
                         height: Dimension::Lp(Lp::points(60)).into(),
                     })
                     .expand_horizontally()
+                    .into_button()
+                    .kind(ButtonKind::Transparent)
+                    .on_click({
+                        let player = context.player.clone();
+                        move |_| {
+                            dbg!("Clicked", index);
+                            let id = track.map_ref(|track| {
+                                track.as_ref().map(|track| track.track.id.clone()).flatten()
+                            });
+                            dbg!(&id);
+                            match id {
+                                Some(id) => player.player.load(
+                                    SpotifyId::from_uri(&id.uri()).unwrap(),
+                                    true,
+                                    0,
+                                ),
+                                None => println!("No track id :("),
+                            }
+                        }
+                    })
             },
         )
         .expand_horizontally()

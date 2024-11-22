@@ -3,7 +3,8 @@ use std::sync::{Arc, LazyLock};
 use cushy::{
     kludgine::{AnyTexture, LazyTexture},
     value::{CallbackDisconnected, CallbackHandle, Destination, Dynamic, Source, Value},
-    widgets::Image,
+    widget::{MakeWidget, WidgetInstance},
+    widgets::{Data, Image},
 };
 use futures_util::lock::Mutex;
 use http_cache_reqwest::{CACacheManager, Cache, CacheMode, HttpCache, HttpCacheOptions};
@@ -14,17 +15,17 @@ use tokio::task::JoinHandle;
 
 use crate::rt::tokio_runtime;
 
-pub trait ImageExt {
+pub trait ImageExt: MakeWidget {
     fn new_empty() -> Self;
 
     fn load_url(&mut self, url: Dynamic<Option<String>>) -> CallbackHandle;
 
-    fn with_url(mut self, url: Dynamic<Option<String>>) -> Self
+    fn with_url(mut self, url: Dynamic<Option<String>>) -> WidgetInstance
     where
         Self: Sized,
     {
-        self.load_url(url).persist();
-        self
+        self.load_url(url.clone()).persist();
+        Data::new_wrapping(url, self).make_widget()
     }
 }
 
@@ -47,8 +48,6 @@ impl ImageExt for Image {
     /// Makes the image connected to a URL
     /// Calling this multiple times on a single image may cause memory leaks
     fn load_url(&mut self, url: Dynamic<Option<String>>) -> CallbackHandle {
-        // let texture = Dynamic::new(get_empty_texture());
-        // println!("load_url called");
         match &mut self.contents {
             Value::Constant(_) => self.contents = Value::Dynamic(Dynamic::new(get_empty_texture())),
             Value::Dynamic(dynamic) => dynamic.set(get_empty_texture()),
@@ -64,6 +63,7 @@ impl ImageExt for Image {
             move |url| {
                 let texture_count = texture.instances();
                 if texture_count <= 1 {
+                    println!("No instances, exiting");
                     return Err(CallbackDisconnected);
                 }
                 let guard = tokio_runtime().enter();

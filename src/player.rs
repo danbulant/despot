@@ -11,7 +11,7 @@ use tokio::time;
 pub type DynamicPlayer = Arc<DynamicPlayerInner>;
 
 pub struct DynamicPlayerInner {
-    player: Arc<Player>,
+    pub player: Arc<Player>,
     pub state: Dynamic<PlayerState>,
     pub track: Dynamic<Option<Box<AudioItem>>>,
     pub track_progress: Dynamic<Option<Duration>>,
@@ -86,6 +86,11 @@ impl DynamicPlayerInner {
         let mut channel = self.player.get_player_event_channel();
         let mut interval = time::interval(time::Duration::from_millis(100));
         interval.set_missed_tick_behavior(time::MissedTickBehavior::Skip);
+        self.track
+            .for_each(|track| {
+                dbg!(&track);
+            })
+            .persist();
         let mut id = 0u64;
         loop {
             tokio::select! {
@@ -166,8 +171,9 @@ impl DynamicPlayerInner {
                             }
                             PlayerEvent::TrackChanged { audio_item } => {
                                 println!("TrackChanged {}", audio_item.uri);
-                                dbg!(&audio_item);
-                                *self.track.lock() = Some(audio_item);
+                                self.track.map_mut(|mut track| {
+                                    *track = Some(audio_item);
+                                });
                                 self.update_position();
                             }
                             PlayerEvent::SessionConnected {

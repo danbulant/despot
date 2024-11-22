@@ -8,6 +8,7 @@ use cushy::{
     value::Dynamic, widget::MakeWidget, window::MakeWindow, Application, Open, PendingApp, Run,
     TokioRuntime,
 };
+use icons::load_fonts;
 use librespot_connect::{
     spirc::{Spirc, SpircLoadCommand},
     state::ConnectStateConfig,
@@ -28,6 +29,7 @@ use widgets::{
 mod api;
 mod auth;
 mod cli;
+mod icons;
 mod nodebug;
 mod player;
 mod rt;
@@ -38,6 +40,7 @@ mod widgets;
 fn main() -> cushy::Result {
     let args = Args::parse();
     let app = PendingApp::new(TokioRuntime::default());
+    load_fonts(app.cushy());
 
     let token = get_token().unwrap();
 
@@ -63,7 +66,12 @@ fn main() -> cushy::Result {
             move || backend(None, audio_format),
         );
 
-        let context = SpotifyContextRef::new(SpotifyContext::new(session.clone(), token));
+        let dynplayer = new_dynamic_player(player.clone());
+        let context = SpotifyContextRef::new(SpotifyContext::new(
+            session.clone(),
+            token,
+            dynplayer.clone(),
+        ));
 
         let mut app = app.as_app();
         tokio::spawn(async move {
@@ -71,12 +79,11 @@ fn main() -> cushy::Result {
                 connect_config,
                 session.clone(),
                 credentials,
-                player.clone(),
+                player,
                 Arc::new(SoftMixer::open(MixerConfig::default())),
             )
             .await
             .unwrap();
-            let dynplayer = new_dynamic_player(player);
             // this cannot happen in `{}` inside join for some reason
             let dynplayer2 = dynplayer.clone();
             tokio::join!(spirc_task, dynplayer2.run(), async move {
