@@ -40,7 +40,6 @@ mod widgets;
 fn main() -> cushy::Result {
     let args = Args::parse();
     let app = PendingApp::new(TokioRuntime::default());
-    load_fonts(app.cushy());
 
     let token = get_token().unwrap();
 
@@ -95,16 +94,17 @@ fn main() -> cushy::Result {
 
                 let selected_page = Dynamic::new(ActivePage::default());
 
-                playlists_widget(playlists.items, selected_page)
+                let mut win = playlists_widget(playlists.items, selected_page)
                     .and(LikedSongsPage::new(context.clone()).into_widget())
                     .into_columns()
                     .expand()
                     .and(bar(dynplayer))
                     .into_rows()
                     .expand()
-                    .make_window()
-                    .open(&mut app)
-                    .unwrap();
+                    .into_window();
+                let fonts = load_fonts(/*app.cushy()*/);
+                win.fonts = fonts;
+                win.open(&mut app).unwrap();
             });
         });
 
